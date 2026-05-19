@@ -10,14 +10,10 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error && data.user) {
-      // Get the Google provider token from the identity
-      const googleIdentity = data.user.identities?.find(
-        (identity) => identity.provider === 'google'
-      )
-      const googleToken = googleIdentity?.identity_data?.access_token as string | undefined
+      // The session from exchangeCodeForSession contains the provider_token
+      const googleToken = data.session?.provider_token
 
       if (googleToken) {
-        // Store the token in user_settings
         await supabase
           .from('user_settings')
           .upsert(

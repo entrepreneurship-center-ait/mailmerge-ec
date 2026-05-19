@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { SyncGoogleToken } from '@/components/SyncGoogleToken'
 
 export default async function DashboardLayout({
   children,
@@ -56,7 +57,10 @@ export default async function DashboardLayout({
           </form>
         </div>
       </aside>
-      <main className="flex-1 p-8">{children}</main>
+      <main className="flex-1 p-8">
+        <SyncGoogleToken />
+        {children}
+      </main>
     </div>
   )
 }
