@@ -9,6 +9,7 @@ interface Campaign {
   name: string
   template_html: string | null
   status: 'draft' | 'scheduled' | 'sending' | 'sent'
+  scheduled_at: string | null
   created_at: string
 }
 
@@ -32,6 +33,13 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const [sending, setSending] = useState(false)
   const [sendProgress, setSendProgress] = useState<{ status: string; sent: number; total: number; percentage: number } | null>(null)
   const [polling, setPolling] = useState(false)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [page, setPage] = useState(1)
+  const [totalParticipants, setTotalParticipants] = useState(0)
+  const [scheduleDate, setScheduleDate] = useState('')
+  const [scheduling, setScheduling] = useState(false)
+  const limit = 25
   const router = useRouter()
 
   useEffect(() => {
@@ -39,7 +47,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       fetchCampaign(id)
       fetchParticipants(id)
     })
-  }, [params])
+  }, [params, page, search, statusFilter])
 
   async function fetchCampaign(id: string) {
     const res = await fetch(`/api/campaigns/${id}`)
@@ -51,10 +59,15 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   }
 
   async function fetchParticipants(id: string) {
-    const res = await fetch(`/api/campaigns/${id}/participants`)
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+    if (search) params.set('search', search)
+    if (statusFilter !== 'all') params.set('status', statusFilter)
+
+    const res = await fetch(`/api/campaigns/${id}/participants?${params}`)
     if (res.ok) {
       const data = await res.json()
-      setParticipants(data)
+      setParticipants(data.participants)
+      setTotalParticipants(data.total)
     }
     setLoading(false)
   }
@@ -111,6 +124,21 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     }
     setSending(false)
     setPolling(false)
+  }
+
+  async function scheduleCampaign() {
+    if (!campaign || !scheduleDate) return
+    setScheduling(true)
+    const res = await fetch(`/api/campaigns/${campaign.id}/schedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scheduledAt: scheduleDate }),
+    })
+    if (res.ok) {
+      fetchCampaign(campaign.id)
+      setScheduleDate('')
+    }
+    setScheduling(false)
   }
 
   useEffect(() => {
@@ -189,6 +217,25 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           <div className="px-6 py-4 border-b border-slate-200">
             <h2 className="text-lg font-semibold text-slate-900">Participants</h2>
           </div>
+          <div className="px-6 py-3 border-b border-slate-200 flex gap-3">
+            <input
+              type="text"
+              placeholder="Search by email or name..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+              className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="all">All</option>
+              <option value="pending">Pending</option>
+              <option value="sent">Sent</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
@@ -199,7 +246,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {participants.slice(0, 50).map((p) => (
+                {participants.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50">
                     <td className="px-6 py-3 text-sm text-slate-900">{p.email}</td>
                     <td className="px-6 py-3 text-sm text-slate-700">{p.name}</td>
@@ -216,10 +263,30 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                 ))}
               </tbody>
             </table>
-            {participants.length > 50 && (
-              <div className="px-6 py-3 text-sm text-slate-500">Showing 50 of {participants.length} participants.</div>
-            )}
           </div>
+          {totalParticipants > limit && (
+            <div className="px-6 py-3 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-sm text-slate-500">
+                Showing {(page - 1) * limit + 1}-{Math.min(page * limit, totalParticipants)} of {totalParticipants}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-3 py-1 text-sm rounded border border-slate-300 disabled:opacity-50 hover:bg-slate-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={page * limit >= totalParticipants}
+                  className="px-3 py-1 text-sm rounded border border-slate-300 disabled:opacity-50 hover:bg-slate-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -269,12 +336,35 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                 style={{ width: `${sendProgress.percentage}%` }}
               />
             </div>
-            <div className="mt-2 flex gap-4 text-sm text-slate-500">
-              <span className="text-emerald-600">Sent: {sendProgress.sent}</span>
-              <span className="text-red-600">Failed: {sendProgress.total - sendProgress.sent - sendProgress.percentage * sendProgress.total / 100}</span>
-              <span className="text-slate-600">Pending: {sendProgress.total - sendProgress.sent}</span>
-            </div>
           </div>
+        </div>
+      )}
+
+      {/* Schedule */}
+      {campaign.status === 'draft' && participants.length > 0 && (
+        <div className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Schedule Send</h2>
+          <p className="mt-1 text-sm text-slate-600">Schedule this campaign to send automatically at a future time.</p>
+          <div className="mt-4 flex gap-3">
+            <input
+              type="datetime-local"
+              value={scheduleDate}
+              onChange={(e) => setScheduleDate(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <button
+              onClick={scheduleCampaign}
+              disabled={scheduling || !scheduleDate}
+              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-amber-700 disabled:opacity-50"
+            >
+              {scheduling ? 'Scheduling...' : 'Schedule'}
+            </button>
+          </div>
+          {campaign.scheduled_at && (
+            <div className="mt-3 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              Scheduled for: {new Date(campaign.scheduled_at).toLocaleString()}
+            </div>
+          )}
         </div>
       )}
     </div>
