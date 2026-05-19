@@ -10,6 +10,13 @@ interface Campaign {
   created_at: string
 }
 
+const statusConfig: Record<Campaign['status'], { label: string; dot: string; bg: string }> = {
+  draft: { label: 'Draft', dot: 'bg-[#636366]', bg: 'bg-[#636366]/10 text-[#8e8e93]' },
+  scheduled: { label: 'Scheduled', dot: 'bg-[#f0a040]', bg: 'bg-[#f0a040]/10 text-[#f0a040]' },
+  sending: { label: 'Sending', dot: 'bg-[#5ac8fa]', bg: 'bg-[#5ac8fa]/10 text-[#5ac8fa]' },
+  sent: { label: 'Sent', dot: 'bg-[#34c759]', bg: 'bg-[#34c759]/10 text-[#34c759]' },
+}
+
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [loading, setLoading] = useState(true)
@@ -62,120 +69,106 @@ export default function CampaignsPage() {
     fetchCampaigns()
   }
 
-  const statusColors: Record<Campaign['status'], string> = {
-    draft: 'bg-slate-100 text-slate-700',
-    scheduled: 'bg-amber-100 text-amber-700',
-    sending: 'bg-blue-100 text-blue-700',
-    sent: 'bg-emerald-100 text-emerald-700',
-  }
-
   if (loading) {
-    return <div className="flex items-center justify-center py-12"><div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" /></div>
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#2a2a2e] border-t-[#f0a040]" />
+      </div>
+    )
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Campaigns</h1>
-          <p className="mt-1 text-sm text-slate-600">Create and manage your email campaigns.</p>
-        </div>
+    <div className="p-8">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="font-serif text-3xl text-[#f5f5f7]">Campaigns</h1>
+        <p className="mt-1.5 text-sm text-[#8e8e93]">Create and manage your email campaigns.</p>
       </div>
 
-      <div className="mt-6 flex gap-3">
+      {/* Create */}
+      <div className="mb-8 flex gap-3">
         <input
           type="text"
           placeholder="Campaign name"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && createCampaign()}
-          className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex-1 rounded-xl border border-[#2a2a2e] bg-[#161618] px-4 py-2.5 text-sm text-[#f5f5f7] placeholder:text-[#3a3a3e] focus:border-[#f0a040]/40 focus:outline-none focus:ring-1 focus:ring-[#f0a040]/20 transition-all"
         />
         <button
           onClick={createCampaign}
           disabled={creating || !newName.trim()}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-xl bg-[#f0a040] px-5 py-2.5 text-sm font-medium text-[#0c0c0d] transition-all hover:bg-[#e89030] disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
         >
-          {creating ? 'Creating...' : 'Create Campaign'}
+          {creating ? 'Creating...' : 'Create'}
         </button>
       </div>
 
+      {/* List */}
       {campaigns.length === 0 ? (
-        <div className="mt-8 rounded-xl border border-dashed border-slate-300 p-12 text-center">
-          <svg className="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
-          </svg>
-          <p className="mt-4 text-sm font-medium text-slate-900">No campaigns yet</p>
-          <p className="mt-1 text-sm text-slate-500">Create your first campaign to get started.</p>
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#2a2a2e] py-20">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f0a040]/5 border border-[#f0a040]/10">
+            <svg className="h-7 w-7 text-[#f0a040]/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+            </svg>
+          </div>
+          <p className="mt-4 text-sm font-medium text-[#8e8e93]">No campaigns yet</p>
+          <p className="mt-1 text-sm text-[#636366]">Create your first campaign to get started.</p>
         </div>
       ) : (
-        <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Created</th>
-                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-500">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {campaigns.map((c) => (
-                <tr key={c.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4 text-sm text-slate-900">
-                    {editingId === c.id ? (
-                      <input
-                        type="text"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && updateCampaign(c.id)}
-                        className="rounded border border-slate-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        autoFocus
-                      />
-                    ) : (
-                      <button
-                        onClick={() => router.push(`/dashboard/campaigns/${c.id}`)}
-                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                      >
-                        {c.name}
-                      </button>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[c.status]}`}>
-                      {c.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-500">
-                    {new Date(c.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 text-right text-sm">
-                    {editingId === c.id ? (
-                      <button
-                        onClick={() => updateCampaign(c.id)}
-                        className="mr-2 font-medium text-emerald-600 hover:text-emerald-800"
-                      >
-                        Save
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => { setEditingId(c.id); setEditName(c.name) }}
-                        className="mr-2 font-medium text-slate-600 hover:text-slate-800"
-                      >
-                        Edit
-                      </button>
-                    )}
+        <div className="space-y-2">
+          {campaigns.map((c, i) => (
+            <div
+              key={c.id}
+              className="group flex items-center justify-between rounded-xl border border-[#2a2a2e] bg-[#161618] px-5 py-4 transition-all hover:border-[#3a3a3e] hover:bg-[#1e1e20]"
+              style={{ animationDelay: `${i * 60}ms` }}
+            >
+              <div className="flex items-center gap-4 min-w-0">
+                <div className={`h-2 w-2 rounded-full ${statusConfig[c.status].dot}`} />
+                <div className="min-w-0">
+                  {editingId === c.id ? (
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && updateCampaign(c.id)}
+                      className="rounded-lg border border-[#3a3a3e] bg-[#1e1e20] px-3 py-1 text-sm text-[#f5f5f7] focus:border-[#f0a040]/40 focus:outline-none"
+                      autoFocus
+                    />
+                  ) : (
                     <button
-                      onClick={() => deleteCampaign(c.id)}
-                      className="font-medium text-red-600 hover:text-red-800"
+                      onClick={() => router.push(`/dashboard/campaigns/${c.id}`)}
+                      className="text-sm font-medium text-[#f5f5f7] hover:text-[#f0a040] transition-colors truncate block"
                     >
-                      Delete
+                      {c.name}
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  )}
+                  <p className="mt-0.5 text-xs text-[#636366]">
+                    {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 ml-4">
+                <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium ${statusConfig[c.status].bg}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${statusConfig[c.status].dot}`} />
+                  {statusConfig[c.status].label}
+                </span>
+                {editingId === c.id ? (
+                  <button onClick={() => updateCampaign(c.id)} className="text-xs font-medium text-[#34c759] hover:text-[#2db84e] transition-colors">
+                    Save
+                  </button>
+                ) : (
+                  <button onClick={() => { setEditingId(c.id); setEditName(c.name) }} className="text-xs font-medium text-[#8e8e93] hover:text-[#f5f5f7] transition-colors">
+                    Edit
+                  </button>
+                )}
+                <button onClick={() => deleteCampaign(c.id)} className="text-xs font-medium text-[#636366] hover:text-[#ff453a] transition-colors">
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
