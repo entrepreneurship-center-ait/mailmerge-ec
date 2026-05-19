@@ -23,7 +23,7 @@ export default async function DashboardLayout({
         </div>
         <nav className="p-4">
           <a
-            href="/dashboard"
+            href="/dashboard/campaigns"
             className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
