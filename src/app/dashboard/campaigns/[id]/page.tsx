@@ -29,6 +29,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const [savingTemplate, setSavingTemplate] = useState(false)
   const [templateContent, setTemplateContent] = useState('')
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
+  const [sendProgress, setSendProgress] = useState<{ status: string; sent: number; total: number; percentage: number } | null>(null)
+  const [polling, setPolling] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -92,6 +95,40 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     }
     setSavingTemplate(false)
   }
+
+  async function startSending() {
+    if (!campaign || !confirm('Send emails to all pending participants? This cannot be undone.')) return
+    setSending(true)
+    setPolling(true)
+
+    const res = await fetch(`/api/campaigns/${campaign.id}/send`, { method: 'POST' })
+    const result = await res.json()
+
+    if (res.ok) {
+      setSendProgress({ status: 'sent', sent: result.sent, total: result.total, percentage: 100 })
+      fetchParticipants(campaign.id)
+      fetchCampaign(campaign.id)
+    }
+    setSending(false)
+    setPolling(false)
+  }
+
+  useEffect(() => {
+    if (!polling || !campaign) return
+    const interval = setInterval(async () => {
+      const res = await fetch(`/api/campaigns/${campaign.id}/progress`)
+      if (res.ok) {
+        const data = await res.json()
+        setSendProgress(data)
+        if (data.status === 'sent' || data.status === 'draft') {
+          setPolling(false)
+          fetchParticipants(campaign.id)
+          fetchCampaign(campaign.id)
+        }
+      }
+    }, 2000)
+    return () => clearInterval(interval)
+  }, [polling, campaign])
 
   const allPlaceholders = ['name', 'email', ...new Set(participants.flatMap(p => Object.keys(p.custom_fields || {})))]
 
@@ -199,6 +236,15 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
             >
               {savingTemplate ? 'Saving...' : 'Save Template'}
             </button>
+            {participants.length > 0 && campaign.template_html && (
+              <button
+                onClick={startSending}
+                disabled={sending || campaign.status === 'sending'}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {sending ? 'Sending...' : campaign.status === 'sending' ? 'Sending in progress...' : 'Send Campaign'}
+              </button>
+            )}
           </div>
         </div>
         <EmailEditor
@@ -207,6 +253,30 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           placeholders={allPlaceholders as string[]}
         />
       </div>
+
+      {/* Send Progress */}
+      {sendProgress && sendProgress.total > 0 && (
+        <div className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Send Progress</h2>
+          <div className="mt-4">
+            <div className="flex justify-between text-sm text-slate-600 mb-1">
+              <span>{sendProgress.sent} of {sendProgress.total} sent</span>
+              <span>{sendProgress.percentage}%</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-slate-200">
+              <div
+                className="h-2 rounded-full bg-emerald-500 transition-all duration-500"
+                style={{ width: `${sendProgress.percentage}%` }}
+              />
+            </div>
+            <div className="mt-2 flex gap-4 text-sm text-slate-500">
+              <span className="text-emerald-600">Sent: {sendProgress.sent}</span>
+              <span className="text-red-600">Failed: {sendProgress.total - sendProgress.sent - sendProgress.percentage * sendProgress.total / 100}</span>
+              <span className="text-slate-600">Pending: {sendProgress.total - sendProgress.sent}</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
