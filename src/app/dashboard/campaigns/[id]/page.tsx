@@ -6,30 +6,66 @@ import { useRouter } from 'next/navigation'
 interface Campaign {
   id: string
   name: string
-  template_html: string | null
-  template_text: string | null
   status: 'draft' | 'scheduled' | 'sending' | 'sent'
-  scheduled_at: string | null
-  sent_at: string | null
   created_at: string
+}
+
+interface Participant {
+  id: string
+  email: string
+  name: string
+  status: string
 }
 
 export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const [participants, setParticipants] = useState<Participant[]>([])
   const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [uploadResult, setUploadResult] = useState<{ total: number; imported: number } | null>(null)
   const router = useRouter()
 
   useEffect(() => {
-    params.then(({ id }) => fetchCampaign(id))
+    params.then(({ id }) => {
+      fetchCampaign(id)
+      fetchParticipants(id)
+    })
   }, [params])
 
   async function fetchCampaign(id: string) {
     const res = await fetch(`/api/campaigns/${id}`)
+    if (res.ok) setCampaign(await res.json())
+  }
+
+  async function fetchParticipants(id: string) {
+    const res = await fetch(`/api/campaigns/${id}/participants`)
     if (res.ok) {
       const data = await res.json()
-      setCampaign(data)
+      setParticipants(data)
     }
     setLoading(false)
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !campaign) return
+
+    setUploading(true)
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('columnMapping', JSON.stringify({ email: 'email', name: 'name' }))
+
+    const res = await fetch(`/api/campaigns/${campaign.id}/participants`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (res.ok) {
+      const result = await res.json()
+      setUploadResult(result)
+      fetchParticipants(campaign.id)
+    }
+    setUploading(false)
   }
 
   if (loading) {
@@ -59,13 +95,73 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="text-sm font-medium text-slate-500">Participants</h3>
-          <p className="mt-2 text-lg font-semibold text-slate-900">0</p>
+          <p className="mt-2 text-lg font-semibold text-slate-900">{participants.length}</p>
         </div>
       </div>
 
-      <div className="mt-8 rounded-xl border border-dashed border-slate-300 p-12 text-center">
-        <p className="text-sm text-slate-500">Campaign detail features coming in next slices: data import, email editor, and sending.</p>
+      <div className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Import Participants</h2>
+        <p className="mt-1 text-sm text-slate-600">Upload a CSV or Excel file with columns: email, name (and any custom fields).</p>
+
+        <div className="mt-4 flex items-center gap-4">
+          <label className="flex-1 cursor-pointer rounded-lg border-2 border-dashed border-slate-300 p-6 text-center transition hover:border-blue-500 hover:bg-blue-50">
+            <input type="file" accept=".csv,.xlsx,.xls" onChange={handleFileUpload} className="hidden" />
+            <svg className="mx-auto h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+            </svg>
+            <p className="mt-2 text-sm text-slate-600">
+              {uploading ? 'Uploading...' : 'Click to upload CSV or Excel'}
+            </p>
+          </label>
+        </div>
+
+        {uploadResult && (
+          <div className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            Imported {uploadResult.imported} of {uploadResult.total} rows.
+          </div>
+        )}
       </div>
+
+      {participants.length > 0 && (
+        <div className="mt-8 rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="px-6 py-4 border-b border-slate-200">
+            <h2 className="text-lg font-semibold text-slate-900">Participants</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {participants.slice(0, 50).map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-3 text-sm text-slate-900">{p.email}</td>
+                    <td className="px-6 py-3 text-sm text-slate-700">{p.name}</td>
+                    <td className="px-6 py-3 text-sm">
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        p.status === 'sent' ? 'bg-emerald-100 text-emerald-700' :
+                        p.status === 'failed' ? 'bg-red-100 text-red-700' :
+                        'bg-slate-100 text-slate-700'
+                      }`}>
+                        {p.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {participants.length > 50 && (
+              <div className="px-6 py-3 text-sm text-slate-500">
+                Showing 50 of {participants.length} participants.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
